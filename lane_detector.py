@@ -59,8 +59,8 @@ def cd_color_segmentation(img, template):
 	# hough for lines
 	rho = 1  # distance resolution in pixels of the Hough grid
 	theta = np.pi / 180  # angular resolution in radians of the Hough grid
-	threshold = 100  # minimum number of votes (intersections in Hough grid cell)
-	min_line_length = 100 # minimum number of pixels making up a line
+	threshold = 70  # minimum number of votes (intersections in Hough grid cell)
+	min_line_length = 70 # minimum number of pixels making up a line
 	max_line_gap = 20  # maximum gap in pixels between connectable line segments
 	line_image = np.copy(img) * 0  # creating a blank to draw lines on
 
@@ -68,11 +68,24 @@ def cd_color_segmentation(img, template):
 	# Output "lines" is an array containing endpoints of detected line segments
 	lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]),
 						min_line_length, max_line_gap)
+	print(lines.shape)
+	slopes = (lines[:,:, 3] - lines[:,:, 2] / lines[:,:, 1] - lines[:,:, 0])
+	THRESHOLD = 0.1
+	dup_ids = set()
+	for i in range(len(slopes)):
+		for j in range(i+1, len(slopes)):
+			if abs(slopes[i] - slopes[j]) < THRESHOLD:
+				dup_ids.add(j)
+	print(dup_ids)
+	singleton_ids = [i for i in range(len(slopes)) if i not in dup_ids]
+	lines = lines[singleton_ids]
+
 	if lines is not None:
 		for line in lines:
 			for x1,y1,x2,y2 in line:
 				line_slope = abs((y2 - y1) / (x2 - x1))
-				if (line_slope > LANE_SLOPE_MIN and line_slope < LANE_SLOPE_MAX):
+				# and line_slope < LANE_SLOPE_MAX
+				if (line_slope > LANE_SLOPE_MIN):
 					cv2.line(line_image,(x1,y1),(x2,y2),(255,0,0),5)
 
 

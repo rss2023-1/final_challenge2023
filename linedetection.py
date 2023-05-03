@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # gray
-img = cv2.imread('src/visual_servoing/testtrackimages/track8.png')
+img = cv2.imread('./testtrackimages/track8.png')
 gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 # blur
 kernel_size = 5
