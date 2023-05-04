@@ -100,10 +100,41 @@ def cd_color_segmentation(img, template):
 	cv2.waitKey(0) 
 	# closing all open windows
 	cv2.destroyAllWindows()
-	
+
+def target_pixel(lookahead,n,x11,x21,slope1,slope2):
+	"""
+	Finds the target midpoint pixel between lines 1 (left) and 2 (right) at a given lookahead distance
+	Input:
+		lookahead: int; the desired lookahead distance in pixels, measured from the bottom of the frame.
+		n: int; frame height in pixels
+		x11: int; 1st pixel index of 1st line, assumes pixel at bottom left.
+		x21: int; 1st pixel index of 2nd line, assumes pixel at bottom right.
+		slope1: float; slope of line 1.
+		slope2: float; slope of line 2.
+	Return:
+		target_pixel: np.array([x, y]); the target pixel.
+	"""
+	midy = n - lookahead
+	midx1 = x11 + lookahead//slope1
+	midx2 = x21 + lookahead//slope2
+	midx = (midx1+midx2)//2
+	return np.array([midx, midy])	
+
+
+### status checks/safety controller
+
+slope_nomimal = np.tan(24.5*np.pi/180)
+arg_line1 = np.arctan(slope1)
+arg_line2 = np.arctan(slope2)
+arg_sum = (arg_line1 + arg_line2)
+kp = 1
+if abs(arg_sum) > (45*np.pi/180)
+	drive.steering_angle = kp*arg_sum # assuming positive steering is right, check this
 
 if __name__ == "__main__":
 	for i in range(1, 60):
-		filename = "./testtrackimages/track" + str(i) + ".png"
+		filename = "src/final_challenge2023/testtrackimages/track" + str(i) + ".png"
 		img = cv2.imread(filename)
 		cd_color_segmentation(img, "template holder")
+
+		
