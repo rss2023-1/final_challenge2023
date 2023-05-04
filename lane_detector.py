@@ -23,6 +23,111 @@ def image_print(img):
 	cv2.waitKey(0)
 	cv2.destroyAllWindows()
 
+def merge_lines(lines, slope_filter):
+	"""
+	Filters lines using slope_filter condition returns the slope 
+	and intercept that is the average of those lines.
+
+	NOTE: slopes are flipped because y is flipped. So positive slope -> right side, negative -> left.
+	Returns None if slope range is empty.
+	"""
+	sum_slope = 0
+	sum_intercept = 0
+	num_lines = 0
+	for line in lines:
+		for x1,y1,x2,y2 in line:
+			line_slope = (y2 - y1) / (x2 - x1)
+			if (slope_filter(line_slope)):
+				num_lines += 1
+				intercept = y1/line_slope - x1
+				sum_slope += line_slope
+				sum_intercept += intercept
+	print(num_lines)
+	
+	if (num_lines > 0):
+		return ((sum_slope/num_lines), (sum_intercept/num_lines))
+	print("No lines in slope range")
+	return None
+
+def line_in_image(slope, intercept, xmax, ymax):
+    ymin = 0
+    xmin = 0
+    # calculate x-coordinate of entry point
+    entry_x = xmin
+    entry_y = slope * entry_x + intercept
+
+    # check if entry point is out of bounds
+    if entry_y < ymin:
+        entry_y = ymin
+        entry_x = (entry_y - intercept) / slope
+    elif entry_y > ymax:
+        entry_y = ymax
+        entry_x = (entry_y - intercept) / slope
+
+    # calculate x-coordinate of exit point
+    exit_x_top = (ymax - intercept) / slope
+    exit_x_bottom = (ymin - intercept) / slope
+
+    if ymin <= exit_x_top <= ymax:
+        exit_x = exit_x_top
+        exit_y = ymax
+    elif ymin <= exit_x_bottom <= ymax:
+        exit_x = exit_x_bottom
+        exit_y = ymin
+    else:
+        exit_y = slope * xmax + intercept
+        if exit_y < ymin:
+            exit_y = ymin
+            exit_x = (exit_y - intercept) / slope
+        elif exit_y > ymax:
+            exit_y = ymax
+            exit_x = (exit_y - intercept) / slope
+        else:
+            exit_x = xmax
+
+    # check if exit point is out of bounds in x-direction
+    if exit_x < xmin:
+        exit_x = xmin
+        exit_y = slope * exit_x + intercept
+    elif exit_x > xmax:
+        exit_x = xmax
+        exit_y = slope * exit_x + intercept
+
+    return (int(entry_x), int(entry_y), int(exit_x), int(exit_y))
+
+	#  # calculate x-coordinate of entry point
+    # entry_x = 0
+    # entry_y = slope * entry_x + intercept
+
+    # # check if entry point is out of bounds
+    # if entry_y < 0:
+    #     entry_y = 0
+    #     entry_x = (entry_y - intercept) / slope
+    # # calculate x-coordinate of exit point
+    # exit_x = x_max
+    # exit_y = slope * exit_x + intercept
+    # # check if exit point is out of bounds
+    # if exit_y > y_max:
+    #     exit_y = y_max
+    #     exit_x = (exit_y - intercept) / slope
+    # return (int(entry_x), int(entry_y), int(exit_x), int(exit_y))
+def select_longest(lines, slope_filter):
+	"""
+	Finds longest line that matches slope_filter condition.
+	Returns 'None' if no line found.
+	"""
+	max_line = [None]
+	max = 0
+	for line in lines:
+		for x1,y1,x2,y2 in line:
+			line_slope = (y2 - y1) / (x2 - x1)
+			if (slope_filter(line_slope)):
+				length = ((x2-x1)**2 + (y2-y1)**2)**(1/2)
+				if (length > max):
+					max = length
+					max_line = line[0]
+	return max_line
+
 def cd_color_segmentation(img, template):
 	"""
 	Implement the cone detection using color segmentation algorithm
@@ -33,14 +138,15 @@ def cd_color_segmentation(img, template):
 		bbox: ((x1, y1), (x2, y2)); the bounding box of the cone, unit in px
 				(x1, y1) is the top left of the bbox and (x2, y2) is the bottom right of the bbox
 	"""
-	LANE_SLOPE_MIN = 0.336
+	LANE_SLOPE_MIN = 0.3
 	LANE_SLOPE_MAX = 1
+	LANE_Y_THRESHOLD = 220
 	########## YOUR CODE STARTS HERE ##########
 	hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV_FULL)
 	#image_print(hsv_img)
 	# orange ranges in hues from 30-45
 	# settings for good performance on testing: (0, 220, 90), (45, 255, 255)
-	mask = cv2.inRange(img, (150, 150, 150), (255, 255, 255))
+	mask = cv2.inRange(img, (170, 170, 170), (255, 255, 255))
 	#image_print(mask)
 	kernel = np.ones((3,3), np.uint8)
 	eroded = cv2.erode(mask, kernel)
@@ -68,30 +174,58 @@ def cd_color_segmentation(img, template):
 	# Output "lines" is an array containing endpoints of detected line segments
 	lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]),
 						min_line_length, max_line_gap)
-	print(lines.shape)
-	slopes = (lines[:,:, 3] - lines[:,:, 2] / lines[:,:, 1] - lines[:,:, 0])
-	THRESHOLD = 0.1
-	dup_ids = set()
-	for i in range(len(slopes)):
-		for j in range(i+1, len(slopes)):
-			if abs(slopes[i] - slopes[j]) < THRESHOLD:
-				dup_ids.add(j)
-	print(dup_ids)
-	singleton_ids = [i for i in range(len(slopes)) if i not in dup_ids]
-	lines = lines[singleton_ids]
-
+	# print(lines.shape)
+	# slopes = (lines[:,:, 3] - lines[:,:, 2] / lines[:,:, 1] - lines[:,:, 0])
+	# THRESHOLD = 0.1
+	# dup_ids = set()
+	# for i in range(len(slopes)):
+	# 	for j in range(i+1, len(slopes)):
+	# 		if abs(slopes[i] - slopes[j]) < THRESHOLD:
+	# 			dup_ids.add(j)
+	# print(dup_ids)
+	# singleton_ids = [i for i in range(len(slopes)) if i not in dup_ids]
+	# lines = lines[singleton_ids]
+	
+	# filter out lines that are not in correct slope range (too flat)
+	# 	or that are too high in the image (y too low)
+	filtered_lines = []
 	if lines is not None:
 		for line in lines:
 			for x1,y1,x2,y2 in line:
 				line_slope = abs((y2 - y1) / (x2 - x1))
-				# and line_slope < LANE_SLOPE_MAX
-				if (line_slope > LANE_SLOPE_MIN):
+				if (line_slope > LANE_SLOPE_MIN and max(y2, y1) > LANE_Y_THRESHOLD):
+					#print(line)
+					filtered_lines.append(line)
 					cv2.line(line_image,(x1,y1),(x2,y2),(255,0,0),5)
+	if (len(filtered_lines) == 0):
+		print('no good lines found')
+		return
+	filtered_lines = np.array(filtered_lines)
+	# right_line = merge_lines(lines, lambda slope: slope > LANE_SLOPE_MIN)
+	# left_line = merge_lines(filtered_lines, lambda slope: slope < -1 * LANE_SLOPE_MIN)
+	# print(left_line)
+	# image_height = img.shape[0]
+	# image_width = img.shape[1]
+	# #RIGHT LINE
+	# right_line_frame = line_in_image(right_line[0], right_line[1], image_width, image_height)
+	# left_line_frame = line_in_image(left_line[0], left_line[1], image_width, image_height)
 
+	# cv2.line(line_image,(right_line_frame[0],right_line_frame[1]),(right_line_frame[2],right_line_frame[3]),(0,255,0),5)
+	# cv2.line(line_image,(left_line_frame[0],left_line_frame[1]),(left_line_frame[2],left_line_frame[3]),(0,255,0),5)
+	# #cv2.line(line_image, (0, 0), (10, 1000), 5)
 
-	cv2.line(line_image, (0, 0), (10, 100), 5)
+	longest_right = select_longest(filtered_lines, lambda slope: slope > LANE_SLOPE_MIN)
+	longest_left = select_longest(filtered_lines, lambda slope: slope < -1 * LANE_SLOPE_MIN)
 
 	# Draw the lines on the  image
+	if(longest_right[0] == None):
+		print("no longest right found")
+	else:
+		cv2.line(line_image,(longest_right[0],longest_right[1]),(longest_right[2],longest_right[3]),(0,0,255),5)
+	if(longest_left[0] == None):
+		print("no longest left found")
+	else:
+		cv2.line(line_image,(longest_left[0],longest_left[1]),(longest_left[2],longest_left[3]),(0,0,255),5)
 	lines_edges = cv2.addWeighted(img, 0.8, line_image, 1, 0)
 
 	cv2.imshow('test',lines_edges)
