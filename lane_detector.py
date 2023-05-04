@@ -222,48 +222,59 @@ def cd_color_segmentation(img, template):
 		print("no longest right found")
 	else:
 		cv2.line(line_image,(longest_right[0],longest_right[1]),(longest_right[2],longest_right[3]),(0,0,255),5)
-	if(longest_left[0] == None):
+	if(longest_left[0] == None):  
 		print("no longest left found")
 	else:
 		cv2.line(line_image,(longest_left[0],longest_left[1]),(longest_left[2],longest_left[3]),(0,0,255),5)
 	lines_edges = cv2.addWeighted(img, 0.8, line_image, 1, 0)
 
-	cv2.imshow('test',lines_edges)
+	# Draw center pixel on the image
+	lookahead = 150 # distance from bottom edge
+	n = img.shape[0]
+	x11 = longest_left[0]
+	y11 = longest_left[1]
+	x22 = longest_right[2]
+	y22 = longest_right[3]
+	# slope calcs assume convention ind 0, 1, 2, 3 = x1, y1, x2, y2
+	slope1 = -(longest_left[3]-longest_left[1])/(longest_left[2]-longest_left[0])
+	print(slope1)
+	slope2 = -(longest_right[3]-longest_right[1])/(longest_right[2]-longest_right[0])
+	print(slope2)
+
+
+	midy = n - lookahead
+	midx1 = x11 + (y11-midy)//slope1
+	print('midx1',midx1)
+	midx2 = x22 + (y22-midy)//slope2
+	print('midx2',midx2)
+	midx = (midx1+midx2)/2
+
+	center_pixel = (midx,midy)
+
+	lines_edges_center = cv2.circle(lines_edges,(int(center_pixel[0]),int(center_pixel[1])) , 5, (0, 255, 0), 2) # green
+	lines_edges_midx1 = cv2.circle(lines_edges_center,(int(midx1),int(midy)) , 5, (255, 255, 0), 2) # cyan
+	lines_edges_midx2 = cv2.circle(lines_edges_midx1,(int(midx2),int(midy)) , 5, (255, 0, 255), 2) # purple
+
+	#lines_edges_center = cv2.addWeighted(lines_edges, 0.8, target_pixel, 1, 0)
+
+	#cv2.imshow('test',lines_edges)
+	cv2.imshow('test',lines_edges_center)
 	# waits for user to press any key
 	# (this is necessary to avoid Python kernel form crashing)
 	cv2.waitKey(0) 
 	# closing all open windows
 	cv2.destroyAllWindows()
 
-def target_pixel(lookahead,n,x11,x21,slope1,slope2):
-	"""
-	Finds the target midpoint pixel between lines 1 (left) and 2 (right) at a given lookahead distance
-	Input:
-		lookahead: int; the desired lookahead distance in pixels, measured from the bottom of the frame.
-		n: int; frame height in pixels
-		x11: int; 1st pixel index of 1st line, assumes pixel at bottom left.
-		x21: int; 1st pixel index of 2nd line, assumes pixel at bottom right.
-		slope1: float; slope of line 1.
-		slope2: float; slope of line 2.
-	Return:
-		target_pixel: np.array([x, y]); the target pixel.
-	"""
-	midy = n - lookahead
-	midx1 = x11 + lookahead//slope1
-	midx2 = x21 + lookahead//slope2
-	midx = (midx1+midx2)//2
-	return np.array([midx, midy])	
-
 
 ### status checks/safety controller
 
-slope_nomimal = np.tan(24.5*np.pi/180)
+""" slope_nomimal = np.tan(24.5*np.pi/180)
 arg_line1 = np.arctan(slope1)
 arg_line2 = np.arctan(slope2)
 arg_sum = (arg_line1 + arg_line2)
 kp = 1
 if abs(arg_sum) > (45*np.pi/180)
-	drive.steering_angle = kp*arg_sum # assuming positive steering is right, check this
+	drive.steering_angle = kp*arg_sum # assuming positive steering is right, check this """
 
 if __name__ == "__main__":
 	for i in range(1, 60):
