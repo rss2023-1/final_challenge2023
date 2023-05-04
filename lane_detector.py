@@ -111,6 +111,22 @@ def line_in_image(slope, intercept, xmax, ymax):
     #     exit_y = y_max
     #     exit_x = (exit_y - intercept) / slope
     # return (int(entry_x), int(entry_y), int(exit_x), int(exit_y))
+def select_longest(lines, slope_filter):
+	"""
+	Finds longest line that matches slope_filter condition.
+	Returns 'None' if no line found.
+	"""
+	max_line = [None]
+	max = 0
+	for line in lines:
+		for x1,y1,x2,y2 in line:
+			line_slope = (y2 - y1) / (x2 - x1)
+			if (slope_filter(line_slope)):
+				length = ((x2-x1)**2 + (y2-y1)**2)**(1/2)
+				if (length > max):
+					max = length
+					max_line = line[0]
+	return max_line
 
 def cd_color_segmentation(img, template):
 	"""
@@ -181,21 +197,35 @@ def cd_color_segmentation(img, template):
 					#print(line)
 					filtered_lines.append(line)
 					cv2.line(line_image,(x1,y1),(x2,y2),(255,0,0),5)
+	if (len(filtered_lines) == 0):
+		print('no good lines found')
+		return
 	filtered_lines = np.array(filtered_lines)
-	right_line = merge_lines(lines, lambda slope: slope > LANE_SLOPE_MIN)
-	left_line = merge_lines(filtered_lines, lambda slope: slope < -1 * LANE_SLOPE_MIN)
-	print(left_line)
-	image_height = img.shape[0]
-	image_width = img.shape[1]
-	#RIGHT LINE
-	right_line_frame = line_in_image(right_line[0], right_line[1], image_width, image_height)
-	left_line_frame = line_in_image(left_line[0], left_line[1], image_width, image_height)
+	# right_line = merge_lines(lines, lambda slope: slope > LANE_SLOPE_MIN)
+	# left_line = merge_lines(filtered_lines, lambda slope: slope < -1 * LANE_SLOPE_MIN)
+	# print(left_line)
+	# image_height = img.shape[0]
+	# image_width = img.shape[1]
+	# #RIGHT LINE
+	# right_line_frame = line_in_image(right_line[0], right_line[1], image_width, image_height)
+	# left_line_frame = line_in_image(left_line[0], left_line[1], image_width, image_height)
 
-	cv2.line(line_image,(right_line_frame[0],right_line_frame[1]),(right_line_frame[2],right_line_frame[3]),(0,255,0),5)
-	cv2.line(line_image,(left_line_frame[0],left_line_frame[1]),(left_line_frame[2],left_line_frame[3]),(0,255,0),5)
-	#cv2.line(line_image, (0, 0), (10, 1000), 5)
+	# cv2.line(line_image,(right_line_frame[0],right_line_frame[1]),(right_line_frame[2],right_line_frame[3]),(0,255,0),5)
+	# cv2.line(line_image,(left_line_frame[0],left_line_frame[1]),(left_line_frame[2],left_line_frame[3]),(0,255,0),5)
+	# #cv2.line(line_image, (0, 0), (10, 1000), 5)
+
+	longest_right = select_longest(filtered_lines, lambda slope: slope > LANE_SLOPE_MIN)
+	longest_left = select_longest(filtered_lines, lambda slope: slope < -1 * LANE_SLOPE_MIN)
 
 	# Draw the lines on the  image
+	if(longest_right[0] == None):
+		print("no longest right found")
+	else:
+		cv2.line(line_image,(longest_right[0],longest_right[1]),(longest_right[2],longest_right[3]),(0,0,255),5)
+	if(longest_left[0] == None):
+		print("no longest left found")
+	else:
+		cv2.line(line_image,(longest_left[0],longest_left[1]),(longest_left[2],longest_left[3]),(0,0,255),5)
 	lines_edges = cv2.addWeighted(img, 0.8, line_image, 1, 0)
 
 	cv2.imshow('test',lines_edges)
