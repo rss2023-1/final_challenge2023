@@ -68,7 +68,7 @@ class LaneDetector():
 			h = image_msg.height
 			w = image_msg.width
 			rotated = rotated[int(3*h/4.0):, 0:]
-		center_pixel = cd_color_segmentation(rotated, "no_template")
+		center_pixel = self.cd_color_segmentation(rotated, "no_template")
 		pixel_msg = ConeLocationPixel()
 		pixel_msg.u = center_pixel[0]
 		pixel_msg.v = center_pixel[1]
